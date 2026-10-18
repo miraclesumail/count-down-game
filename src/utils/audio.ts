@@ -1,16 +1,27 @@
 /**
- * Audio Engine supporting Web Audio API procedural synthesis,
- * mobile (iOS/Android) touch-unlock, preset sound themes,
- * custom audio uploads, and voice recording.
+ * Dual-Pipeline Audio Engine for 100% Cross-Platform Audio Reliability
+ * (Desktop, iOS Safari, Android Chrome, WeChat, Mobile Webview)
+ *
+ * Pipeline 1: Web Audio API (AudioBufferSourceNode) for zero-latency instant playback
+ * Pipeline 2: Pre-synthesized PCM WAV HTML5 Audio for mobile fallback & suspended context bypass
  */
+
+import { 
+  encodeWAV, 
+  generateWinSamples, 
+  generateFailSamples, 
+  generateTickSamples, 
+  generateBeepSamples, 
+  generateClickSamples 
+} from './soundGenerator';
 
 export type SoundTheme = 'arcade' | 'mechanical' | 'synth' | 'chime';
 
 export interface CustomSounds {
-  win?: string;      // Base64 Data URL or Object URL
-  fail?: string;     // Base64 Data URL or Object URL
-  tick?: string;     // Base64 Data URL or Object URL
-  countdown?: string;// Base64 Data URL or Object URL
+  win?: string;
+  fail?: string;
+  tick?: string;
+  countdown?: string;
 }
 
 export interface AudioSettings {
@@ -23,7 +34,7 @@ export interface AudioSettings {
 
 const DEFAULT_SETTINGS: AudioSettings = {
   muted: false,
-  volume: 0.8,
+  volume: 0.85,
   tickEnabled: true,
   theme: 'arcade',
   customSounds: {},
@@ -32,56 +43,105 @@ const DEFAULT_SETTINGS: AudioSettings = {
 class SoundManager {
   private ctx: AudioContext | null = null;
   private settings: AudioSettings = DEFAULT_SETTINGS;
-  private audioElements: Map<string, HTMLAudioElement> = new Map();
   private isUnlocked: boolean = false;
+  private audioListeners: Set<(isUnlocked: boolean) => void> = new Set();
+
+  // Cached AudioBuffers for Web Audio
+  private bufferWin: AudioBuffer | null = null;
+  private bufferFail: AudioBuffer | null = null;
+  private bufferTick: AudioBuffer | null = null;
+  private bufferBeep: AudioBuffer | null = null;
+  private bufferBeepGo: AudioBuffer | null = null;
+  private bufferClick: AudioBuffer | null = null;
+
+  // Cached HTML5 Audio elements for mobile fallback
+  private htmlAudioWin: HTMLAudioElement | null = null;
+  private htmlAudioFail: HTMLAudioElement | null = null;
+  private htmlAudioTick: HTMLAudioElement | null = null;
+  private htmlAudioBeep: HTMLAudioElement | null = null;
+  private htmlAudioBeepGo: HTMLAudioElement | null = null;
+  private htmlAudioClick: HTMLAudioElement | null = null;
+
+  // Custom audio elements
+  private customAudioCache: Map<string, HTMLAudioElement> = new Map();
 
   constructor() {
     this.loadSettings();
-    this.setupMobileUnlockListeners();
+    this.rebuildAudioCaches();
+    this.setupGlobalUnlock();
   }
 
-  /**
-   * Set up passive touch listeners to unlock Web Audio on mobile browsers (iOS Safari, Android Chrome)
-   */
-  private setupMobileUnlockListeners() {
-    if (typeof window === 'undefined') return;
-
-    const unlockHandler = () => {
-      this.unlock();
-      // Remove once unlocked
-      window.removeEventListener('touchstart', unlockHandler);
-      window.removeEventListener('touchend', unlockHandler);
-      window.removeEventListener('pointerdown', unlockHandler);
-      window.removeEventListener('click', unlockHandler);
+  public subscribeUnlock(cb: (isUnlocked: boolean) => void): () => void {
+    this.audioListeners.add(cb);
+    cb(this.isUnlocked);
+    return () => {
+      this.audioListeners.delete(cb);
     };
+  }
 
-    window.addEventListener('touchstart', unlockHandler, { passive: true, once: false });
-    window.addEventListener('touchend', unlockHandler, { passive: true, once: false });
-    window.addEventListener('pointerdown', unlockHandler, { passive: true, once: false });
-    window.addEventListener('click', unlockHandler, { passive: true, once: false });
+  private notifyUnlock() {
+    this.audioListeners.forEach((cb) => cb(this.isUnlocked));
   }
 
   /**
-   * Explicitly unlock audio context on mobile user gesture
+   * Rebuild synthesized WAV & AudioBuffers whenever theme changes
    */
-  public unlock() {
+  private rebuildAudioCaches() {
     try {
-      const ctx = this.getAudioContext();
-      if (ctx.state === 'suspended') {
-        ctx.resume();
-      }
-      if (!this.isUnlocked) {
-        // Play 1-sample silent buffer to satisfy iOS WebKit restrictions
-        const buffer = ctx.createBuffer(1, 1, 22050);
-        const source = ctx.createBufferSource();
-        source.buffer = buffer;
-        source.connect(ctx.destination);
-        source.start(0);
-        this.isUnlocked = true;
+      const theme = this.settings.theme;
+
+      // Generate raw float samples
+      const winSamples = generateWinSamples(theme);
+      const failSamples = generateFailSamples(theme);
+      const tickSamples = generateTickSamples();
+      const beepSamples = generateBeepSamples(false);
+      const beepGoSamples = generateBeepSamples(true);
+      const clickSamples = generateClickSamples();
+
+      // Convert to WAV Data URLs
+      const winWav = encodeWAV(winSamples);
+      const failWav = encodeWAV(failSamples);
+      const tickWav = encodeWAV(tickSamples);
+      const beepWav = encodeWAV(beepSamples);
+      const beepGoWav = encodeWAV(beepGoSamples);
+      const clickWav = encodeWAV(clickSamples);
+
+      // Create HTML5 Audio instances
+      this.htmlAudioWin = this.createHTMLAudio(winWav);
+      this.htmlAudioFail = this.createHTMLAudio(failWav);
+      this.htmlAudioTick = this.createHTMLAudio(tickWav);
+      this.htmlAudioBeep = this.createHTMLAudio(beepWav);
+      this.htmlAudioBeepGo = this.createHTMLAudio(beepGoWav);
+      this.htmlAudioClick = this.createHTMLAudio(clickWav);
+
+      // Populate AudioBuffers if context exists
+      if (this.ctx) {
+        this.bufferWin = this.createAudioBuffer(winSamples);
+        this.bufferFail = this.createAudioBuffer(failSamples);
+        this.bufferTick = this.createAudioBuffer(tickSamples);
+        this.bufferBeep = this.createAudioBuffer(beepSamples);
+        this.bufferBeepGo = this.createAudioBuffer(beepGoSamples);
+        this.bufferClick = this.createAudioBuffer(clickSamples);
       }
     } catch (e) {
-      console.warn('AudioContext unlock failed:', e);
+      console.warn('Failed to rebuild audio caches:', e);
     }
+  }
+
+  private createHTMLAudio(src: string): HTMLAudioElement {
+    const audio = new Audio(src);
+    audio.preload = 'auto';
+    audio.setAttribute('playsinline', 'true');
+    audio.setAttribute('webkit-playsinline', 'true');
+    audio.volume = this.settings.volume;
+    return audio;
+  }
+
+  private createAudioBuffer(samples: Float32Array): AudioBuffer {
+    const ctx = this.getAudioContext();
+    const buffer = ctx.createBuffer(1, samples.length, 22050);
+    buffer.getChannelData(0).set(samples);
+    return buffer;
   }
 
   private getAudioContext(): AudioContext {
@@ -89,10 +149,53 @@ class SoundManager {
       const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       this.ctx = new AudioCtx();
     }
-    if (this.ctx.state === 'suspended') {
-      this.ctx.resume();
-    }
     return this.ctx;
+  }
+
+  /**
+   * Global unlock for mobile browsers
+   */
+  private setupGlobalUnlock() {
+    if (typeof window === 'undefined') return;
+
+    const unlockHandler = () => {
+      this.unlock();
+    };
+
+    // Multiple listeners to ensure any user interaction unlocks audio
+    ['touchstart', 'touchend', 'click', 'pointerdown'].forEach((evt) => {
+      window.addEventListener(evt, unlockHandler, { passive: true });
+    });
+  }
+
+  /**
+   * Unlock Web Audio & HTML5 Audio
+   */
+  public unlock(): boolean {
+    try {
+      const ctx = this.getAudioContext();
+      if (ctx.state === 'suspended' || ctx.state === 'interrupted') {
+        ctx.resume();
+      }
+
+      // Rebuild Web Audio buffers if not already created
+      if (!this.bufferWin) {
+        this.rebuildAudioCaches();
+      }
+
+      // Play 1-sample silent buffer to unlock iOS Safari Web Audio
+      const silentBuffer = ctx.createBuffer(1, 1, 22050);
+      const source = ctx.createBufferSource();
+      source.buffer = silentBuffer;
+      source.connect(ctx.destination);
+      source.start(0);
+
+      this.isUnlocked = true;
+      this.notifyUnlock();
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   public getSettings(): AudioSettings {
@@ -102,6 +205,9 @@ class SoundManager {
   public updateSettings(partial: Partial<AudioSettings>) {
     this.settings = { ...this.settings, ...partial };
     this.saveSettings();
+    if (partial.theme) {
+      this.rebuildAudioCaches();
+    }
   }
 
   private loadSettings() {
@@ -124,302 +230,110 @@ class SoundManager {
   }
 
   /**
-   * Attempt to play custom audio. If unavailable or fails, synchronously execute Web Audio fallback.
+   * Dual-pipeline playback helper:
+   * 1. Try Web Audio buffer source first (ultra low latency)
+   * 2. If Web Audio is suspended or throws, fallback to HTML5 Audio element
    */
-  private playCustomOr(type: keyof CustomSounds, fallback: () => void) {
+  private playSound(
+    buffer: AudioBuffer | null,
+    htmlAudio: HTMLAudioElement | null,
+    customKey?: keyof CustomSounds
+  ) {
     if (this.settings.muted || this.settings.volume <= 0) return;
 
-    // Make sure context is unblocked
     this.unlock();
 
-    const customUrl = this.settings.customSounds[type];
-    if (customUrl) {
+    // Check if custom sound exists
+    if (customKey && this.settings.customSounds[customKey]) {
+      const customUrl = this.settings.customSounds[customKey]!;
       try {
-        let audio = this.audioElements.get(type);
-        if (!audio || audio.src !== customUrl) {
-          audio = new Audio(customUrl);
-          audio.setAttribute('playsinline', 'true');
-          audio.setAttribute('webkit-playsinline', 'true');
-          this.audioElements.set(type, audio);
+        let customEl = this.customAudioCache.get(customKey);
+        if (!customEl || customEl.src !== customUrl) {
+          customEl = new Audio(customUrl);
+          customEl.setAttribute('playsinline', 'true');
+          customEl.setAttribute('webkit-playsinline', 'true');
+          this.customAudioCache.set(customKey, customEl);
         }
-        audio.currentTime = 0;
-        audio.volume = this.settings.volume;
-        const promise = audio.play();
-        if (promise !== undefined) {
-          promise.catch(() => {
-            // Fallback to synth if custom playback was blocked
-            fallback();
-          });
-        }
+        customEl.currentTime = 0;
+        customEl.volume = this.settings.volume;
+        customEl.play().catch(() => {
+          // fallback to built-in sound if custom play failed
+          this.playBuiltin(buffer, htmlAudio);
+        });
         return;
       } catch {
-        // Fallback to synth
+        // fallback
       }
     }
 
-    fallback();
+    this.playBuiltin(buffer, htmlAudio);
   }
 
-  /**
-   * VICTORY / WIN SOUND
-   */
-  public playWin() {
-    this.playCustomOr('win', () => {
-      try {
-        const ctx = this.getAudioContext();
-        if (ctx.state === 'suspended') {
-          ctx.resume();
-        }
-        const now = ctx.currentTime;
-        const theme = this.settings.theme;
-        const masterVol = ctx.createGain();
-        masterVol.gain.value = Math.max(0.1, this.settings.volume);
-        masterVol.connect(ctx.destination);
+  private playBuiltin(buffer: AudioBuffer | null, htmlAudio: HTMLAudioElement | null) {
+    let webAudioSuccess = false;
 
-        if (theme === 'arcade') {
-          // High energy 8-bit arpeggio fanfare (C5, E5, G5, C6, E6, G6)
-          const notes = [523.25, 659.25, 783.99, 1046.50, 1318.51, 1567.98];
-          notes.forEach((freq, idx) => {
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.type = 'square';
-            osc.frequency.setValueAtTime(freq, now + idx * 0.07);
-
-            gain.gain.setValueAtTime(0, now + idx * 0.07);
-            gain.gain.linearRampToValueAtTime(0.25, now + idx * 0.07 + 0.02);
-            gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.07 + 0.22);
-
-            osc.connect(gain);
-            gain.connect(masterVol);
-
-            osc.start(now + idx * 0.07);
-            osc.stop(now + idx * 0.07 + 0.25);
-          });
-        } else if (theme === 'chime') {
-          // Harmonic bell triad
-          const freqs = [523.25, 659.25, 783.99, 1046.50];
-          freqs.forEach((freq, i) => {
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.type = 'sine';
-            osc.frequency.value = freq;
-
-            gain.gain.setValueAtTime(0, now);
-            gain.gain.linearRampToValueAtTime(0.3 / (i + 1), now + 0.04);
-            gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.2);
-
-            osc.connect(gain);
-            gain.connect(masterVol);
-
-            osc.start(now);
-            osc.stop(now + 1.2);
-          });
-        } else if (theme === 'mechanical') {
-          // Crisp brass bell strike
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.type = 'triangle';
-          osc.frequency.setValueAtTime(880, now);
-          osc.frequency.exponentialRampToValueAtTime(440, now + 0.5);
-
-          gain.gain.setValueAtTime(0.4, now);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
-
-          osc.connect(gain);
-          gain.connect(masterVol);
-          osc.start(now);
-          osc.stop(now + 0.6);
-        } else {
-          // Modern Synth Chord
-          [440, 554.37, 659.25, 880].forEach((freq) => {
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.type = 'sawtooth';
-            osc.frequency.setValueAtTime(freq, now);
-
-            gain.gain.setValueAtTime(0, now);
-            gain.gain.linearRampToValueAtTime(0.18, now + 0.04);
-            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.7);
-
-            osc.connect(gain);
-            gain.connect(masterVol);
-            osc.start(now);
-            osc.stop(now + 0.75);
-          });
-        }
-      } catch (err) {
-        console.warn('Error in playWin:', err);
+    // Pipeline 1: Web Audio BufferSource
+    try {
+      const ctx = this.getAudioContext();
+      if (ctx.state === 'running' && buffer) {
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+        const gainNode = ctx.createGain();
+        gainNode.gain.value = this.settings.volume;
+        source.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        source.start(0);
+        webAudioSuccess = true;
+      } else if (ctx.state === 'suspended') {
+        ctx.resume();
       }
-    });
-  }
+    } catch {
+      webAudioSuccess = false;
+    }
 
-  /**
-   * DEFEAT / FAIL SOUND
-   */
-  public playFail() {
-    this.playCustomOr('fail', () => {
+    // Pipeline 2: HTML5 Audio Fallback (essential for iOS Safari & Android Chrome when Web Audio is suspended or muted)
+    if (!webAudioSuccess && htmlAudio) {
       try {
-        const ctx = this.getAudioContext();
-        if (ctx.state === 'suspended') {
-          ctx.resume();
-        }
-        const now = ctx.currentTime;
-        const masterVol = ctx.createGain();
-        masterVol.gain.value = Math.max(0.1, this.settings.volume);
-        masterVol.connect(ctx.destination);
-
-        const theme = this.settings.theme;
-
-        if (theme === 'arcade') {
-          // 8-bit descending buzz
-          const freqs = [330, 311.13, 293.66, 220];
-          freqs.forEach((freq, idx) => {
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.type = 'sawtooth';
-            osc.frequency.setValueAtTime(freq, now + idx * 0.1);
-
-            gain.gain.setValueAtTime(0.25, now + idx * 0.1);
-            gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.1 + 0.14);
-
-            osc.connect(gain);
-            gain.connect(masterVol);
-
-            osc.start(now + idx * 0.1);
-            osc.stop(now + idx * 0.1 + 0.16);
+        htmlAudio.currentTime = 0;
+        htmlAudio.volume = this.settings.volume;
+        const playPromise = htmlAudio.play();
+        if (playPromise !== undefined) {
+          playPromise.catch((err) => {
+            console.warn('HTML5 Audio fallback play blocked:', err);
           });
-        } else if (theme === 'chime') {
-          // Low melancholy bell
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(240, now);
-          osc.frequency.exponentialRampToValueAtTime(140, now + 0.6);
-
-          gain.gain.setValueAtTime(0.35, now);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.7);
-
-          osc.connect(gain);
-          gain.connect(masterVol);
-          osc.start(now);
-          osc.stop(now + 0.7);
-        } else {
-          // Deep thud
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-
-          osc.type = 'triangle';
-          osc.frequency.setValueAtTime(180, now);
-          osc.frequency.exponentialRampToValueAtTime(70, now + 0.4);
-
-          gain.gain.setValueAtTime(0.4, now);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
-
-          osc.connect(gain);
-          gain.connect(masterVol);
-
-          osc.start(now);
-          osc.stop(now + 0.45);
         }
-      } catch (err) {
-        console.warn('Error in playFail:', err);
-      }
-    });
-  }
-
-  /**
-   * TICK SOUND
-   */
-  public playTick() {
-    if (!this.settings.tickEnabled || this.settings.muted) return;
-    this.playCustomOr('tick', () => {
-      try {
-        const ctx = this.getAudioContext();
-        if (ctx.state === 'suspended') {
-          ctx.resume();
-        }
-        const now = ctx.currentTime;
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-
-        osc.type = this.settings.theme === 'arcade' ? 'square' : 'triangle';
-        osc.frequency.setValueAtTime(1200, now);
-        osc.frequency.exponentialRampToValueAtTime(400, now + 0.03);
-
-        gain.gain.setValueAtTime(Math.max(0.05, this.settings.volume * 0.2), now);
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.035);
-
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-
-        osc.start(now);
-        osc.stop(now + 0.04);
       } catch {
         // ignore
       }
-    });
+    }
   }
 
   /**
-   * COUNTDOWN BEEP
+   * Sound triggers
    */
+  public playWin() {
+    this.playSound(this.bufferWin, this.htmlAudioWin, 'win');
+  }
+
+  public playFail() {
+    this.playSound(this.bufferFail, this.htmlAudioFail, 'fail');
+  }
+
+  public playTick() {
+    if (!this.settings.tickEnabled) return;
+    this.playSound(this.bufferTick, this.htmlAudioTick, 'tick');
+  }
+
   public playCountdown(isGo = false) {
-    if (this.settings.muted) return;
-    this.unlock();
-    try {
-      const ctx = this.getAudioContext();
-      if (ctx.state === 'suspended') {
-        ctx.resume();
-      }
-      const now = ctx.currentTime;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-
-      osc.type = 'sine';
-      const freq = isGo ? 880 : 440;
-      const duration = isGo ? 0.35 : 0.15;
-
-      osc.frequency.setValueAtTime(freq, now);
-      gain.gain.setValueAtTime(Math.max(0.1, this.settings.volume * 0.35), now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
-
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-
-      osc.start(now);
-      osc.stop(now + duration + 0.05);
-    } catch {
-      // ignore
+    if (isGo) {
+      this.playSound(this.bufferBeepGo, this.htmlAudioBeepGo);
+    } else {
+      this.playSound(this.bufferBeep, this.htmlAudioBeep);
     }
   }
 
-  /**
-   * BUTTON CLICK HAPTIC SOUND
-   */
   public playClick() {
-    if (this.settings.muted) return;
-    this.unlock();
-    try {
-      const ctx = this.getAudioContext();
-      if (ctx.state === 'suspended') {
-        ctx.resume();
-      }
-      const now = ctx.currentTime;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(800, now);
-      gain.gain.setValueAtTime(Math.max(0.05, this.settings.volume * 0.15), now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
-
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(now);
-      osc.stop(now + 0.045);
-    } catch {
-      // ignore
-    }
+    this.playSound(this.bufferClick, this.htmlAudioClick);
   }
 }
 

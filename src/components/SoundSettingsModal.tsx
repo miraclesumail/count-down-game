@@ -173,7 +173,30 @@ export const SoundSettingsModal: React.FC<SoundSettingsModalProps> = ({
         </div>
 
         {/* Scrollable Body */}
-        <div className="flex-1 overflow-y-auto py-5 space-y-6 pr-1">
+        <div className="flex-1 overflow-y-auto py-4 sm:py-5 space-y-5 sm:space-y-6 pr-1">
+          {/* Mobile Sound Helper Notice */}
+          <div className="p-3.5 bg-blue-950/40 border border-blue-500/30 rounded-xl space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Volume2 className="w-4 h-4 text-blue-400" />
+                <span className="text-xs font-bold text-white">手机端声音检测与一键激活</span>
+              </div>
+              <button
+                onClick={() => {
+                  soundManager.unlock();
+                  soundManager.playWin();
+                }}
+                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold shadow-sm flex items-center gap-1 active:scale-95 transition-transform"
+              >
+                <Play className="w-3 h-3 fill-current" />
+                <span>测试发声</span>
+              </button>
+            </div>
+            <p className="text-[11px] text-slate-300 leading-relaxed">
+              💡 <strong className="text-blue-300">特别排查提示</strong>：iPhone / iPad 若无声，请检查机身左侧<strong>物理静音拨片开关</strong>（切勿处于静音红标状态，iOS 会拦截网页声音）；安卓手机请确保已调大<strong>媒体音量</strong>（非通话铃声音量）。
+            </p>
+          </div>
+
           {/* Master Volume & Mute */}
           <div className="p-4 bg-slate-800/50 rounded-xl border border-slate-750 space-y-3">
             <div className="flex items-center justify-between">

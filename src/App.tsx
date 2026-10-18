@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Target, Clock, Hourglass, Volume2, 
   HelpCircle, Sparkles, CheckCircle2, ShieldCheck
@@ -12,6 +12,7 @@ import { ChallengeView } from './components/ChallengeView';
 import { StopwatchView } from './components/StopwatchView';
 import { CountdownView } from './components/CountdownView';
 import { SoundSettingsModal } from './components/SoundSettingsModal';
+import { soundManager } from './utils/audio';
 
 type ActiveTab = 'challenge' | 'stopwatch' | 'countdown' | 'rules';
 
@@ -19,6 +20,13 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('challenge');
   const [isSoundModalOpen, setIsSoundModalOpen] = useState<boolean>(false);
   const [, setSoundRevision] = useState<number>(0);
+  const [isAudioUnlocked, setIsAudioUnlocked] = useState<boolean>(false);
+
+  useEffect(() => {
+    return soundManager.subscribeUnlock((unlocked) => {
+      setIsAudioUnlocked(unlocked);
+    });
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#080b11] text-slate-100 flex flex-col selection:bg-blue-500 selection:text-white w-full max-w-full overflow-x-hidden">
@@ -112,6 +120,23 @@ export default function App() {
 
       {/* Main Content Arena */}
       <main className="flex-1 max-w-6xl w-full mx-auto p-3 sm:p-6 lg:p-8 flex flex-col justify-start overflow-x-hidden">
+        {/* Mobile Audio Activation Prompt */}
+        {!isAudioUnlocked && (
+          <div 
+            onClick={() => {
+              soundManager.unlock();
+              soundManager.playClick();
+            }}
+            className="mb-3 p-2.5 rounded-xl bg-blue-950/70 border border-blue-500/40 text-blue-200 text-xs flex items-center justify-between gap-2 cursor-pointer shadow-lg active:scale-98 transition-transform"
+          >
+            <div className="flex items-center gap-2 min-w-0">
+              <Volume2 className="w-4 h-4 text-blue-400 shrink-0 animate-pulse" />
+              <span className="truncate">点击此处或任意按键激活音效（iPhone若无声请关闭左侧静音键）</span>
+            </div>
+            <span className="text-[11px] bg-blue-600 text-white px-2 py-0.5 rounded font-medium shrink-0">点击激活</span>
+          </div>
+        )}
+
         {activeTab === 'challenge' && (
           <ChallengeView onOpenSoundSettings={() => setIsSoundModalOpen(true)} />
         )}
