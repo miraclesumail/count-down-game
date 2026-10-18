@@ -120,6 +120,7 @@ export const SoundSettingsModal: React.FC<SoundSettingsModalProps> = ({
   };
 
   const testSound = (type: keyof CustomSounds) => {
+    soundManager.unlock();
     if (type === 'win') soundManager.playWin();
     else if (type === 'fail') soundManager.playFail();
     else if (type === 'tick') soundManager.playTick();
@@ -147,25 +148,25 @@ export const SoundSettingsModal: React.FC<SoundSettingsModalProps> = ({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
       <div 
-        className="w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-6 flex flex-col max-h-[90vh] overflow-hidden"
+        className="w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-4 sm:p-6 flex flex-col max-h-[92vh] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-slate-800">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400">
+        <div className="flex items-center justify-between pb-3 sm:pb-4 border-b border-slate-800 gap-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="p-2 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400 shrink-0">
               <Music className="w-5 h-5" />
             </div>
-            <div>
-              <h2 className="text-lg font-bold text-white tracking-tight">自定义提醒音效与音频设置</h2>
-              <p className="text-xs text-slate-400">内置多种音效主题，支持本地音频上传或麦克风录制</p>
+            <div className="min-w-0">
+              <h2 className="text-base sm:text-lg font-bold text-white tracking-tight truncate">自定义提醒音效</h2>
+              <p className="text-[11px] sm:text-xs text-slate-400 truncate">内置多种主题，支持上传音频或麦克风录音</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-white px-3 py-1.5 rounded-lg hover:bg-slate-800 text-sm font-medium transition-colors"
+            className="text-slate-400 hover:text-white px-2.5 py-1.5 rounded-lg hover:bg-slate-800 text-xs sm:text-sm font-medium transition-colors shrink-0"
           >
             关闭
           </button>

@@ -21,85 +21,97 @@ export default function App() {
   const [, setSoundRevision] = useState<number>(0);
 
   return (
-    <div className="min-h-screen bg-[#080b11] text-slate-100 flex flex-col selection:bg-blue-500 selection:text-white">
-      {/* Top Bar following 3-Zone Contract */}
-      <header className="sticky top-0 z-40 bg-[#080b11]/85 backdrop-blur-md border-b border-slate-800/80 px-4 sm:px-8 py-3.5 flex items-center justify-between gap-8">
-        {/* Zone 1: Brand title, single line text */}
-        <div className="flex items-center gap-2.5 shrink-0">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/20">
-            <Clock className="w-4 h-4 text-white" />
+    <div className="min-h-screen bg-[#080b11] text-slate-100 flex flex-col selection:bg-blue-500 selection:text-white w-full max-w-full overflow-x-hidden">
+      {/* Top Bar following responsive layout with no horizontal overflow */}
+      <header className="sticky top-0 z-40 bg-[#080b11]/90 backdrop-blur-md border-b border-slate-800/80 px-3 sm:px-8 py-2.5 sm:py-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-6 w-full max-w-full">
+        {/* Top row on mobile / Zone 1 on desktop: Brand & Mobile Sound trigger */}
+        <div className="flex items-center justify-between w-full sm:w-auto shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/20 shrink-0">
+              <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
+            </div>
+            <span className="text-base sm:text-lg font-bold tracking-tight text-white whitespace-nowrap">
+              ChronoPrecision
+            </span>
           </div>
-          <span className="text-base sm:text-lg font-bold tracking-tight text-white whitespace-nowrap">
-            ChronoPrecision
-          </span>
+
+          {/* Mobile Sound Settings trigger */}
+          <div className="sm:hidden flex items-center gap-2">
+            <button
+              onClick={() => setIsSoundModalOpen(true)}
+              className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-slate-200 bg-slate-800/90 hover:bg-slate-750 border border-slate-700 rounded-lg transition-colors shadow-sm"
+            >
+              <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
+              <span>音效</span>
+            </button>
+          </div>
         </div>
 
-        {/* Zone 2: Navigation Links / Segmented Tabs */}
-        <nav className="flex items-center gap-1 sm:gap-2 p-1 bg-slate-900/90 rounded-xl border border-slate-800 text-xs font-medium">
+        {/* Navigation Links / Segmented Tabs: compact on mobile */}
+        <nav className="flex items-center justify-between sm:justify-center gap-1 p-1 bg-slate-900/90 rounded-xl border border-slate-800 text-xs font-medium w-full sm:w-auto">
           <button
             onClick={() => setActiveTab('challenge')}
-            className={`px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors flex items-center gap-1.5 ${
+            className={`flex-1 sm:flex-initial px-2 sm:px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors flex items-center justify-center gap-1 ${
               activeTab === 'challenge'
                 ? 'bg-blue-600 text-white shadow-sm font-semibold'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            <Target className="w-3.5 h-3.5" />
+            <Target className="w-3.5 h-3.5 shrink-0" />
             <span>停秒挑战</span>
           </button>
 
           <button
             onClick={() => setActiveTab('stopwatch')}
-            className={`px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors flex items-center gap-1.5 ${
+            className={`flex-1 sm:flex-initial px-2 sm:px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors flex items-center justify-center gap-1 ${
               activeTab === 'stopwatch'
                 ? 'bg-blue-600 text-white shadow-sm font-semibold'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            <Clock className="w-3.5 h-3.5" />
+            <Clock className="w-3.5 h-3.5 shrink-0" />
             <span>高精秒表</span>
           </button>
 
           <button
             onClick={() => setActiveTab('countdown')}
-            className={`px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors flex items-center gap-1.5 ${
+            className={`flex-1 sm:flex-initial px-2 sm:px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors flex items-center justify-center gap-1 ${
               activeTab === 'countdown'
                 ? 'bg-blue-600 text-white shadow-sm font-semibold'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            <Hourglass className="w-3.5 h-3.5" />
+            <Hourglass className="w-3.5 h-3.5 shrink-0" />
             <span>倒计时</span>
           </button>
 
           <button
             onClick={() => setActiveTab('rules')}
-            className={`hidden sm:flex px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors items-center gap-1.5 ${
+            className={`flex-1 sm:flex-initial px-2 sm:px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors flex items-center justify-center gap-1 ${
               activeTab === 'rules'
                 ? 'bg-blue-600 text-white shadow-sm font-semibold'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            <HelpCircle className="w-3.5 h-3.5" />
-            <span>规则指南</span>
+            <HelpCircle className="w-3.5 h-3.5 shrink-0" />
+            <span>规则</span>
           </button>
         </nav>
 
-        {/* Zone 3: 1 Primary Action (Sound / Audio Settings) */}
-        <div className="flex items-center gap-3 shrink-0">
+        {/* Desktop Primary Action */}
+        <div className="hidden sm:flex items-center gap-3 shrink-0">
           <button
             onClick={() => setIsSoundModalOpen(true)}
             className="flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold text-slate-200 bg-slate-800 hover:bg-slate-750 hover:text-white border border-slate-700 rounded-xl transition-colors whitespace-nowrap shadow-sm"
           >
             <Volume2 className="w-4 h-4 text-emerald-400" />
-            <span className="hidden sm:inline">自定义音效</span>
-            <span className="sm:hidden">音效</span>
+            <span>自定义音效</span>
           </button>
         </div>
       </header>
 
       {/* Main Content Arena */}
-      <main className="flex-1 max-w-6xl w-full mx-auto p-4 sm:p-6 lg:p-8 flex flex-col justify-start">
+      <main className="flex-1 max-w-6xl w-full mx-auto p-3 sm:p-6 lg:p-8 flex flex-col justify-start overflow-x-hidden">
         {activeTab === 'challenge' && (
           <ChallengeView onOpenSoundSettings={() => setIsSoundModalOpen(true)} />
         )}

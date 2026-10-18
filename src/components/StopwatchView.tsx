@@ -24,6 +24,7 @@ export const StopwatchView: React.FC = () => {
 
   const start = useCallback(() => {
     if (isRunning) return;
+    soundManager.unlock();
     setIsRunning(true);
     soundManager.playClick();
     startTimeRef.current = performance.now();
@@ -47,6 +48,7 @@ export const StopwatchView: React.FC = () => {
 
   const pause = useCallback(() => {
     if (!isRunning) return;
+    soundManager.unlock();
     if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     accumulatedCsRef.current = elapsedCs;
     setIsRunning(false);
@@ -54,6 +56,7 @@ export const StopwatchView: React.FC = () => {
   }, [isRunning, elapsedCs]);
 
   const reset = useCallback(() => {
+    soundManager.unlock();
     if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     setIsRunning(false);
     accumulatedCsRef.current = 0;
@@ -66,6 +69,7 @@ export const StopwatchView: React.FC = () => {
 
   const addLap = useCallback(() => {
     if (!isRunning && elapsedCs === 0) return;
+    soundManager.unlock();
     const currentTotal = elapsedCs;
     const lapDelta = currentTotal - lastLapCsRef.current;
     lastLapCsRef.current = currentTotal;
@@ -105,49 +109,49 @@ export const StopwatchView: React.FC = () => {
   }
 
   return (
-    <div className="w-full max-w-4xl mx-auto space-y-6">
+    <div className="w-full max-w-4xl mx-auto space-y-4 sm:space-y-6 overflow-x-hidden">
       {/* Stopwatch Main Display */}
-      <div className="p-8 sm:p-12 rounded-3xl bg-slate-900/80 border border-slate-800 shadow-2xl backdrop-blur-xl flex flex-col items-center justify-center">
-        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">
-          <Clock className="w-4 h-4 text-blue-400" />
+      <div className="p-5 sm:p-12 rounded-3xl bg-slate-900/80 border border-slate-800 shadow-2xl backdrop-blur-xl flex flex-col items-center justify-center w-full">
+        <div className="flex items-center gap-2 text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3 sm:mb-4">
+          <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-400" />
           <span>专业0.01秒高精度秒表 (自动进位)</span>
         </div>
 
         {/* Large Digits */}
-        <div className="text-6xl sm:text-8xl md:text-9xl font-extrabold font-mono-numbers text-white tracking-tight flex items-baseline justify-center select-none py-4">
+        <div className="text-5xl sm:text-8xl md:text-9xl font-extrabold font-mono-numbers text-white tracking-tight flex items-baseline justify-center select-none py-2 sm:py-4">
           {parsed.minutes > 0 && (
             <>
               <span>{parsed.formattedMinutes}</span>
-              <span className="text-blue-500 px-1 text-4xl sm:text-7xl font-normal">:</span>
+              <span className="text-blue-500 px-0.5 sm:px-1 text-3xl sm:text-7xl font-normal">:</span>
             </>
           )}
           <span>{parsed.formattedSeconds}</span>
-          <span className="text-blue-500 px-1 text-4xl sm:text-7xl font-normal">.</span>
+          <span className="text-blue-500 px-0.5 sm:px-1 text-3xl sm:text-7xl font-normal">.</span>
           <span className="text-blue-400">{parsed.formattedCentiseconds}</span>
         </div>
 
-        <div className="text-xs text-slate-400 font-mono-numbers flex items-center gap-2 mt-1">
+        <div className="text-[11px] sm:text-xs text-slate-400 font-mono-numbers flex items-center gap-1.5 sm:gap-2 mt-1">
           {parsed.minutes > 0 && <span>分 (00-59) ·</span>}
           <span>秒 (00-59) ·</span>
-          <span className="text-blue-400 font-medium">百分之一秒 (00-99 自动进位)</span>
+          <span className="text-blue-400 font-medium">百分之一秒 (00-99 进位)</span>
         </div>
 
         {/* Action Controls */}
-        <div className="flex flex-wrap items-center justify-center gap-4 mt-10">
+        <div className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-4 mt-6 sm:mt-10 w-full">
           {!isRunning ? (
             <button
               onClick={start}
-              className="py-3.5 px-8 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-bold text-base shadow-lg shadow-blue-600/30 flex items-center gap-2 transition-all transform active:scale-95"
+              className="flex-1 sm:flex-initial py-3 sm:py-3.5 px-6 sm:px-8 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-bold text-sm sm:text-base shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 transition-all transform active:scale-95"
             >
-              <Play className="w-5 h-5 fill-current" />
+              <Play className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
               <span>启动</span>
             </button>
           ) : (
             <button
               onClick={pause}
-              className="py-3.5 px-8 bg-amber-600 hover:bg-amber-500 text-white rounded-2xl font-bold text-base shadow-lg shadow-amber-600/30 flex items-center gap-2 transition-all transform active:scale-95"
+              className="flex-1 sm:flex-initial py-3 sm:py-3.5 px-6 sm:px-8 bg-amber-600 hover:bg-amber-500 text-white rounded-2xl font-bold text-sm sm:text-base shadow-lg shadow-amber-600/30 flex items-center justify-center gap-2 transition-all transform active:scale-95"
             >
-              <Pause className="w-5 h-5 fill-current" />
+              <Pause className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
               <span>暂停</span>
             </button>
           )}
@@ -155,18 +159,18 @@ export const StopwatchView: React.FC = () => {
           <button
             onClick={addLap}
             disabled={!isRunning}
-            className="py-3.5 px-6 bg-slate-800 hover:bg-slate-750 text-slate-200 hover:text-white rounded-2xl font-semibold text-sm border border-slate-700 flex items-center gap-2 transition-colors disabled:opacity-40"
+            className="flex-1 sm:flex-initial py-3 sm:py-3.5 px-4 sm:px-6 bg-slate-800 hover:bg-slate-750 text-slate-200 hover:text-white rounded-2xl font-semibold text-xs sm:text-sm border border-slate-700 flex items-center justify-center gap-1.5 sm:gap-2 transition-colors disabled:opacity-40"
           >
-            <Flag className="w-4 h-4 text-emerald-400" />
+            <Flag className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400" />
             <span>计次 (Lap)</span>
           </button>
 
           <button
             onClick={reset}
             disabled={elapsedCs === 0 && laps.length === 0}
-            className="py-3.5 px-6 bg-slate-800 hover:bg-slate-750 text-slate-200 hover:text-white rounded-2xl font-semibold text-sm border border-slate-700 flex items-center gap-2 transition-colors disabled:opacity-40"
+            className="flex-1 sm:flex-initial py-3 sm:py-3.5 px-4 sm:px-6 bg-slate-800 hover:bg-slate-750 text-slate-200 hover:text-white rounded-2xl font-semibold text-xs sm:text-sm border border-slate-700 flex items-center justify-center gap-1.5 sm:gap-2 transition-colors disabled:opacity-40"
           >
-            <RotateCcw className="w-4 h-4" />
+            <RotateCcw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             <span>复位</span>
           </button>
         </div>
